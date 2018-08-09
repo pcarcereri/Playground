@@ -7,7 +7,6 @@ namespace AzureTablePerformanceTest
     public static class Parameters
     {
         private static readonly Dictionary<string, int> _italianRegionToPopulation;
-        private static int _regionReductionFactor = 1000;
         private static long _amountOfPeopleToUpload;
 
         static Parameters()
@@ -38,7 +37,6 @@ namespace AzureTablePerformanceTest
             };
 
             _italianRegionToPopulation.Values.ToList().ForEach(val => _amountOfPeopleToUpload += val);
-            _amountOfPeopleToUpload /= _regionReductionFactor;
         }
 
         public static int PercentageOfPeopleToQuery
@@ -50,11 +48,11 @@ namespace AzureTablePerformanceTest
             }
         }
 
-        public static Dictionary<string, int> ItalianRegionToPopulation
+        public static IDictionary<string, int> ItalianRegionToPopulation
         {
             get
             {
-                return _italianRegionToPopulation.ToDictionary(kvp => kvp.Key, kvp => (int)kvp.Value / _regionReductionFactor);
+                return _italianRegionToPopulation;
             }
         }
 
