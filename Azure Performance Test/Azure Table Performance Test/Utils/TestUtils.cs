@@ -22,40 +22,6 @@ namespace AzureTablePerformanceTest
               .Select(s => s[_random.Next(s.Length)]).ToArray());
         }
 
-        public static void WritePeopleToFile(IEnumerable<Person> people, string fileName)
-        {
-            if (File.Exists(fileName))
-            {
-                File.Delete(fileName);
-            }
-
-            // write batches in order to avoid out of memory exceptions
-            int batchSize = 100000;
-            var batches = people.Batch(batchSize);
-            foreach (var batch in batches)
-            {
-                string serializedJsonPeople = JsonConvert.SerializeObject(batch);
-
-                File.AppendAllText(fileName, serializedJsonPeople);
-            }
-        }
-
-        public static IEnumerable<Person> ReadPeopleFromFile(string fileName)
-        {
-            // using stream for better performances
-            //https://www.newtonsoft.com/json/help/html/performance.htm
-            using (Stream s = File.OpenRead(fileName))
-            using (StreamReader sr = new StreamReader(s))
-            using (JsonReader reader = new JsonTextReader(sr))
-            {
-                JsonSerializer serializer = new JsonSerializer();
-
-                // read the json from a stream
-                // json size doesn't matter because only a small piece is read at a time from the HTTP request
-                return serializer.Deserialize<IEnumerable<Person>>(reader);
-            }
-        }
-
         public static RegionData CreateTestDataAndUploadItToAzure(string regionName, int regionPopulation)
         {
             List<Person> peopleBatch = new List<Person>();
@@ -101,7 +67,6 @@ namespace AzureTablePerformanceTest
             return amountOfPeopleToUpload;
         }
 
-
         private static double CalculateAverageEntitySize(IEnumerable<Person> peopleDataset)
         {
             long totalSizeInByte = 0;
@@ -117,7 +82,6 @@ namespace AzureTablePerformanceTest
                                     8 + "Age".Length * 2 + 4;
 
                 totalSizeInByte += personSize;
-
             }
 
             double totalSizeInByteInKB = totalSizeInByte / 1000;
@@ -173,7 +137,11 @@ namespace AzureTablePerformanceTest
             double entitiesPerSecond = (double)numberOfPeople / elapsedSeconds;
             string entitiesPerSecondString = entitiesPerSecond.ToString("f2");
 
-            return new RegionExecutionTime() { FormattedTime = executionTimeString, EntitiesPerSecond = entitiesPerSecondString };
+            return new RegionExecutionTime()
+            {
+                FormattedTime = executionTimeString,
+                EntitiesPerSecond = entitiesPerSecondString
+            };
         }
     }
 }

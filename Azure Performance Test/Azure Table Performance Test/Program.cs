@@ -61,7 +61,7 @@ namespace AzureTablePerformanceTest
 
             peopleToQuery.Shuffle();
 
-            int queryBatchSize = 10000;
+            int queryBatchSize = 100;
             var batches = peopleToQuery.Batch(queryBatchSize);
 
             var tasks = new List<Task>();
@@ -69,9 +69,7 @@ namespace AzureTablePerformanceTest
             {
                 foreach (var batch in batches)
                 {
-                    var queryPeopleTask = new Task(() => TestUtils.QueryPeopleBatch(batch),
-                                                         TaskCreationOptions.LongRunning);
-                    queryPeopleTask.Start();
+                    var queryPeopleTask = Task.Run(() => TestUtils.QueryPeopleBatch(batch));
                     tasks.Add(queryPeopleTask);
                 }
                 Task.WaitAll(tasks.ToArray());

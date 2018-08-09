@@ -10,12 +10,17 @@ namespace AzureTablePerformanceTest
     {
         // TODO: move to config file
         private static readonly string _connectionString = @"Please enter your connection string here";
+        private static CloudTableClient _tableClient;
+
+        static AzureUtils()
+        {
+            CloudStorageAccount storageAccount = CreateStorageAccountFromConnectionString();
+            _tableClient = storageAccount.CreateCloudTableClient();
+        }
 
         public static CloudTable GetCloudTable(string tableName)
         {
-            CloudStorageAccount storageAccount = CreateStorageAccountFromConnectionString();
-            CloudTableClient tableClient = storageAccount.CreateCloudTableClient();
-            return tableClient.GetTableReference(Parameters.TableName);
+            return _tableClient.GetTableReference(tableName);
         }
 
         /// <summary>
