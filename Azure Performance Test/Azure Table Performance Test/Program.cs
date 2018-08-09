@@ -75,7 +75,7 @@ namespace AzureTablePerformanceTest
                 Task.WaitAll(tasks.ToArray());
             }, numberOfPeople: peopleToQuery.Count);
 
-            Console.WriteLine($"\nQueried {peopleToQuery.Count} random people ({Parameters.PercentageOfPeopleToQuery}% of the total)");
+            Console.WriteLine($"\nQueried {peopleToQuery.Count} random people (About {Parameters.PercentageOfPeopleToQuery}% of the total)");
             Console.Write($"Querying average of {executionTime.EntitiesPerSecond} queries/s");
         }
     }

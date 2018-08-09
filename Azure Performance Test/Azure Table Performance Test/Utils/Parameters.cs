@@ -16,7 +16,7 @@ namespace AzureTablePerformanceTest
 
         public static int PercentageOfPeopleToQuery { get; private set; } = 1;
 
-        public static string TableName { get; private set; } = "ItaliansRegion";
+        public static string TableName { get; private set; } = "ItalianRegions";
 
         public static IDictionary<string, int> ItalianRegionToPopulation
         {

@@ -27,6 +27,7 @@ namespace AzureTablePerformanceTest
             List<Person> peopleBatch = new List<Person>();
             List<Person> peopleToQueryDataset = new List<Person>();
             int sizeOfPeopleToQuery = (regionPopulation / 100) * Parameters.PercentageOfPeopleToQuery;
+            int sizeOfPeopleToQueryPerBatch = sizeOfPeopleToQuery / (regionPopulation / 100);
 
             int batchSize = 100;
             for (int i = 1; i <= regionPopulation; i++)
@@ -36,7 +37,7 @@ namespace AzureTablePerformanceTest
                 if (i % batchSize == 0 || i == regionPopulation)
                 {
                     InsertBatchIntoTable(peopleBatch);
-                    peopleToQueryDataset.AddRange(peopleBatch.GetRandomDataset(size: sizeOfPeopleToQuery));
+                    peopleToQueryDataset.AddRange(peopleBatch.GetRandomDataset(size: sizeOfPeopleToQueryPerBatch));
                     peopleBatch.Clear();
                 }
             }
