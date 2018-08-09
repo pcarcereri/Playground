@@ -60,7 +60,9 @@ namespace AzureTablePerformanceTest
                 .ToList();
 
             peopleToQuery.Shuffle();
-            var batches = peopleToQuery.Batch(1000);
+
+            int queryBatchSize = 10000;
+            var batches = peopleToQuery.Batch(queryBatchSize);
 
             var tasks = new List<Task>();
             RegionExecutionTime executionTime = TestUtils.MeasureExecutionTimeForOperationOnEntities(() =>
