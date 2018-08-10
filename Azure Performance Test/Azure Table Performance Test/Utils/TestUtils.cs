@@ -24,10 +24,11 @@ namespace AzureTablePerformanceTest
 
         public static RegionData CreateTestDataAndUploadItToAzure(string regionName, int regionPopulation)
         {
+            List<Task> insertionTasks = new List<Task>();
             List<Person> peopleBatch = new List<Person>();
             List<Person> peopleToQueryDataset = new List<Person>();
-            int sizeOfPeopleToQuery = (regionPopulation / 100) * Parameters.PercentageOfPeopleToQuery;
-            int sizeOfPeopleToQueryPerBatch = sizeOfPeopleToQuery / (regionPopulation / 100);
+            double sizeOfPeopleToQuery = (regionPopulation / 100) * Parameters.PercentageOfPeopleToQuery;
+            int sizeOfPeopleToQueryPerBatch = (int)Math.Round(sizeOfPeopleToQuery / (regionPopulation / 100));
 
             int batchSize = 100;
             for (int i = 1; i <= regionPopulation; i++)
@@ -36,11 +37,16 @@ namespace AzureTablePerformanceTest
 
                 if (i % batchSize == 0 || i == regionPopulation)
                 {
-                    InsertBatchIntoTable(peopleBatch);
-                    peopleToQueryDataset.AddRange(peopleBatch.GetRandomDataset(size: sizeOfPeopleToQueryPerBatch));
+                    var insertionTask = InsertBatchIntoTable(peopleBatch);
+                    insertionTasks.Add(insertionTask);
+
+                    var peopleToBeAddedToQueryDataSet = peopleBatch.GetRandomDataset(size: sizeOfPeopleToQueryPerBatch);
+                    peopleToQueryDataset.AddRange(peopleToBeAddedToQueryDataSet);
                     peopleBatch.Clear();
                 }
             }
+
+            Task.WaitAll(insertionTasks.ToArray());
 
             Console.WriteLine($"Uploaded {regionPopulation} people for region: '{regionName}'");
 
@@ -83,6 +89,7 @@ namespace AzureTablePerformanceTest
                                     8 + "Age".Length * 2 + 4;
 
                 totalSizeInByte += personSize;
+
             }
 
             double totalSizeInByteInKB = totalSizeInByte / 1000;
@@ -90,25 +97,23 @@ namespace AzureTablePerformanceTest
             return averageEntitySizeForRegion;
         }
 
-        internal static void QueryPeopleBatch(IEnumerable<Person> batch)
+        public static void QueryPeopleBatch(IEnumerable<Person> batch)
         {
-            var tasks = new List<Task>();
+            var queryTasks = new List<Task>();
             CloudTable cloudTable = AzureUtils.GetCloudTable(Parameters.TableName);
 
             foreach (var person in batch)
             {
                 TableOperation retrieveOperation = TableOperation.Retrieve<Person>(person.PartitionKey, person.RowKey);
 
-                TableResult retrievedResult = cloudTable.ExecuteAsync(retrieveOperation).Result;
-
-                if (retrievedResult.Result == null)
-                {
-                    throw new InvalidOperationException($"Cannot retrieve entity. Partition key: {person.PartitionKey}, Row key: {person.RowKey}");
-                }
+                var queryTask = cloudTable.ExecuteAsync(retrieveOperation);
+                queryTasks.Add(queryTask);
             }
+
+            Task.WaitAll(queryTasks.ToArray());
         }
 
-        public static void InsertBatchIntoTable(IEnumerable<Person> people)
+        public static Task InsertBatchIntoTable(IEnumerable<Person> people)
         {
             TableBatchOperation batchOperation = new TableBatchOperation();
             CloudTable cloudTable = AzureUtils.GetCloudTable(Parameters.TableName);
@@ -118,7 +123,7 @@ namespace AzureTablePerformanceTest
                 batchOperation.Insert(person);
             }
 
-            cloudTable.ExecuteBatchAsync(batchOperation).Wait();
+            return cloudTable.ExecuteBatchAsync(batchOperation);
         }
 
         public static RegionExecutionTime MeasureExecutionTimeForOperationOnEntities(Action action, long numberOfPeople)
