@@ -108,7 +108,7 @@ namespace AzureTablePerformanceTest
                 });
 
             Console.WriteLine(Environment.NewLine);
-            Console.WriteLine($"Retrieved {peopleToQuery.Count.ToString("##,#")} random people (max. {Parameters.NumberOfPeopleToQueryPerRegion} people per region) took: {executionTime.FormattedTime}");
+            Console.WriteLine($"Retrieving {peopleToQuery.Count.ToString("##,#")} random people (c.a. {Parameters.NumberOfPeopleToQueryPerRegion} per region) took: {executionTime.FormattedTime}");
             Console.Write($"Querying average of {executionTime.EntitiesPerSecond} queries/s{Environment.NewLine}");
         }
 
