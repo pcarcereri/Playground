@@ -40,7 +40,7 @@ namespace AzureTablePerformanceTest
 
         public static string TableName { get; private set; }
 
-        public static int AzureBatchSize { get; private set; };
+        public static int AzureBatchSize { get; private set; }
 
         public static string LogPath
         {
