@@ -78,7 +78,6 @@ namespace AzureTablePerformanceTest
             return table;
         }
 
-
         public static CloudTable DeleteTable(string tableName)
         {
             // Retrieve storage account information from connection string.

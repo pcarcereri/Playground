@@ -14,52 +14,40 @@ namespace AzureTablePerformanceTest
     {
         private static Random _random = new Random();
 
-        // https://stackoverflow.com/questions/1344221/how-can-i-generate-random-alphanumeric-strings-in-c
-        public static string RandomString(int length)
+        public static RegionTestData CreateTestDataAndUploadItToAzure(RegionInputTestData regionInputData)
         {
-            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-            return new string(Enumerable.Repeat(chars, length)
-              .Select(s => s[_random.Next(s.Length)]).ToArray());
-        }
-
-        public static RegionData CreateTestDataAndUploadItToAzure(string regionName, int regionPopulation)
-        {
-            List<Task> insertionTasks = new List<Task>();
             List<Person> peopleBatch = new List<Person>();
-            List<Person> peopleToQueryDataset = new List<Person>();
-            double sizeOfPeopleToQuery = (regionPopulation / 100) * Parameters.PercentageOfPeopleToQuery;
-            int sizeOfPeopleToQueryPerBatch = (int)Math.Round(sizeOfPeopleToQuery / (regionPopulation / 100));
+            List<Person> peopleToQuery = new List<Person>();
 
-            int batchSize = 100;
-            for (int i = 1; i <= regionPopulation; i++)
+            for (int counter = 1; counter <= regionInputData.RegionPopulation; counter++)
             {
-                peopleBatch.Add(new Person(regionName));
+                var newPerson = new Person(regionInputData.RegionName);
+                peopleBatch.Add(newPerson);
 
-                if (i % batchSize == 0 || i == regionPopulation)
+                if (regionInputData.PeopleToQueryIndexes.Contains(counter))
                 {
-                    var insertionTask = InsertBatchIntoTable(peopleBatch);
-                    insertionTasks.Add(insertionTask);
+                    peopleToQuery.Add(newPerson);
+                }
 
-                    var peopleToBeAddedToQueryDataSet = peopleBatch.GetRandomDataset(size: sizeOfPeopleToQueryPerBatch);
-                    peopleToQueryDataset.AddRange(peopleToBeAddedToQueryDataSet);
+                if (counter % Parameters.AzureBatchSize == 0 || counter == regionInputData.RegionPopulation)
+                {
+                    InsertBatchIntoTable(peopleBatch);
                     peopleBatch.Clear();
                 }
             }
 
-            Task.WaitAll(insertionTasks.ToArray());
+            Console.WriteLine($"Uploaded {regionInputData.RegionPopulation.ToString("##,#")} people for region: '{regionInputData.RegionName}'");
 
-            Console.WriteLine($"Uploaded {regionPopulation} people for region: '{regionName}'");
-
-            return new RegionData()
+            return new RegionTestData()
             {
-                RegionName = regionName,
-                RegionPopulation = regionPopulation,
-                PeopleToQueryDataset = peopleToQueryDataset,
-                AverageEntitySizeForQueriedEntitiesInKB = CalculateAverageEntitySize(peopleToQueryDataset),
+                RegionName = regionInputData.RegionName,
+                RegionPopulation = regionInputData.RegionPopulation,
+                PeopleToQueryDataset = peopleToQuery,
+                AverageEntitySizeForQueriedEntitiesInKB = CalculateAverageEntitySize(peopleToQuery),
             };
         }
 
-        public static string GetTotalEntitySize(List<RegionData> regionData)
+        public static string GetTotalEntitySize(List<RegionTestData> regionData)
         {
             double regionTotalSize = 0;
             regionData.ForEach(region => regionTotalSize += region.AverageEntitySizeForQueriedEntitiesInKB);
@@ -67,7 +55,7 @@ namespace AzureTablePerformanceTest
             return averageEntitySize.ToString("f2");
         }
 
-        public static long GetTotalRegionPopulation(List<RegionData> regionData)
+        public static long GetTotalRegionPopulation(List<RegionTestData> regionData)
         {
             long amountOfPeopleToUpload = 0;
             regionData.ForEach(region => amountOfPeopleToUpload += region.RegionPopulation);
@@ -97,23 +85,30 @@ namespace AzureTablePerformanceTest
             return averageEntitySizeForRegion;
         }
 
-        public static void QueryPeopleBatch(IEnumerable<Person> batch)
+        public static List<Person> RetrieveRandomPeopleToQuery(List<RegionTestData> regionData)
         {
-            var queryTasks = new List<Task>();
+            List<Person> peopleToQuery = regionData
+                            .SelectMany(regionInfo => regionInfo.PeopleToQueryDataset)
+                            .ToList();
+
+            peopleToQuery.Shuffle();
+
+            return peopleToQuery;
+        }
+
+        public static void QueryBatchOfPeople(IEnumerable<Person> batchToQuery)
+        {
             CloudTable cloudTable = AzureUtils.GetCloudTable(Parameters.TableName);
 
-            foreach (var person in batch)
+            Parallel.ForEach(batchToQuery, (person) =>
             {
                 TableOperation retrieveOperation = TableOperation.Retrieve<Person>(person.PartitionKey, person.RowKey);
 
                 var queryTask = cloudTable.ExecuteAsync(retrieveOperation);
-                queryTasks.Add(queryTask);
-            }
-
-            Task.WaitAll(queryTasks.ToArray());
+            });
         }
 
-        public static Task InsertBatchIntoTable(IEnumerable<Person> people)
+        public static void InsertBatchIntoTable(IEnumerable<Person> people)
         {
             TableBatchOperation batchOperation = new TableBatchOperation();
             CloudTable cloudTable = AzureUtils.GetCloudTable(Parameters.TableName);
@@ -123,10 +118,10 @@ namespace AzureTablePerformanceTest
                 batchOperation.Insert(person);
             }
 
-            return cloudTable.ExecuteBatchAsync(batchOperation);
+            cloudTable.ExecuteBatchAsync(batchOperation).Wait();
         }
 
-        public static RegionExecutionTime MeasureExecutionTimeForOperationOnEntities(Action action, long numberOfPeople)
+        public static RegionExecutionTime MeasureExecutionTimeForOperationOnEntities(long numberOfPeople, Action action)
         {
             Stopwatch timer = Stopwatch.StartNew();
 
@@ -148,6 +143,43 @@ namespace AzureTablePerformanceTest
                 FormattedTime = executionTimeString,
                 EntitiesPerSecond = entitiesPerSecondString
             };
+        }
+
+        //https://stackoverflow.com/questions/4470700/how-to-save-console-writeline-output-to-text-file
+        public static void RedirectConsoleToLogFile()
+        {
+            string logPath = Parameters.LogPath;
+            if (File.Exists(logPath))
+            {
+                File.Delete(logPath);
+            }
+
+            // stream should be closed at the end of the program 
+            FileStream ostrm = new FileStream(logPath, FileMode.OpenOrCreate, FileAccess.Write);
+            StreamWriter writer = new StreamWriter(ostrm);
+            Console.SetOut(writer);
+        }
+
+        // https://stackoverflow.com/questions/1344221/how-can-i-generate-random-alphanumeric-strings-in-c
+        public static string RandomString(int length)
+        {
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            return new string(Enumerable.Repeat(chars, length)
+              .Select(s => s[_random.Next(s.Length)]).ToArray());
+        }
+
+        public static void WritePeopleToFile(IEnumerable<Person> people, string fileName)
+        {
+            string serializedJsonPeople = JsonConvert.SerializeObject(people);
+
+            File.WriteAllText(fileName, serializedJsonPeople);
+        }
+
+        public static IEnumerable<Person> ReadPeopleToFile(string fileName)
+        {
+            string jsonPeople = File.ReadAllText(fileName);
+
+            return JsonConvert.DeserializeObject<IEnumerable<Person>>(jsonPeople);
         }
     }
 }

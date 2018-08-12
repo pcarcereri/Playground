@@ -34,6 +34,29 @@ namespace AzureTablePerformanceTest
                 yield return bucket.Take(count);
         }
 
+        public static HashSet<int> GenerateListOfRandomIndexes(int length, int maxIndex)
+        {
+            HashSet<int> randomIndexes = new HashSet<int>();
+
+            for (int i = 0; i < length; i++)
+            {
+                int randomIndex = _random.Next(maxIndex);
+
+                int trials = 0;
+                while (randomIndexes.Contains(randomIndex))
+                {
+                    randomIndex = _random.Next(maxIndex);
+                    trials++;
+                    if (trials > 10)
+                    {
+                        // trying 10 times
+                        break;
+                    }
+                }
+                randomIndexes.Add(randomIndex);
+            }
+            return randomIndexes;
+        }
 
         public static IEnumerable<TSource> GetRandomDataset<TSource>(this IEnumerable<TSource> source, int size)
         {

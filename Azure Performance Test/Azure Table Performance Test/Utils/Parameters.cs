@@ -1,22 +1,37 @@
 ﻿using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.IO;
 
 namespace AzureTablePerformanceTest
 {
     public static class Parameters
     {
         private static Dictionary<string, int> _italianRegionToPopulation;
+        private static int _loadReductionFactor = 5;
         private static long _amountOfPeopleToUpload = 0;
+        private static string _logPath;
 
         static Parameters()
         {
             InitializeItalianRegions();
+
+            InitializeLogging();
         }
 
-        public static int PercentageOfPeopleToQuery { get; private set; } = 1;
+        public static int NumberOfPeopleToQueryPerRegion { get; private set; } = 1000;
 
         public static string TableName { get; private set; } = "ItalianRegions";
+
+        public static int AzureBatchSize { get; private set; } = 100;
+
+        public static string LogPath
+        {
+            get
+            {
+                return _logPath;
+            }
+        }
 
         public static IDictionary<string, int> ItalianRegionToPopulation
         {
@@ -26,7 +41,7 @@ namespace AzureTablePerformanceTest
             }
         }
 
-        public static long AmountOfPeopleToUpload
+        public static long NumberOfPeopleToUpload
         {
             get
             {
@@ -35,21 +50,28 @@ namespace AzureTablePerformanceTest
             }
         }
 
+        private static void InitializeLogging()
+        {
+            _logPath = Path.Combine(Path.GetTempPath(), "Azure table test error log.txt");
+
+            File.AppendAllText(_logPath, $"{Environment.NewLine}Start test at: {DateTime.Now}{Environment.NewLine}");
+        }
+
         private static void InitializeItalianRegions()
         {
             // source: https://www.tuttitalia.it/regioni/popolazione/
             _italianRegionToPopulation = new Dictionary<string, int>()
             {
-                { "Lombardia",   10036258 },
-                { "Lazio",     5896693},
+                { "Lombardia",   6036258 },
+                { "Lazio",     4896693},
                 { "Campania",      5826860},
                 { "Sicilia",    5026989},
                 { "Veneto",    4903722},
-                { "Emilia Romagna",    4452629},
-                { "Piemonte",      4375865},
-                { "Puglia",   4048242},
-                { "Toscana",    3736968},
-                { "Calabria",      1956687},
+                { "Emilia Romagna",    5452629},
+                { "Piemonte",      5375865},
+                { "Puglia",   5048242},
+                { "Toscana",    4736968},
+                { "Calabria",      4956687},
                 { "Sardegna",      1648176},
                 { "Liguria",   1556981},
                 { "Marche",    1531753},
@@ -62,7 +84,11 @@ namespace AzureTablePerformanceTest
                 { "V d'Aosta",      126202}
             };
 
+            _italianRegionToPopulation = _italianRegionToPopulation
+                .ToDictionary(kvp => kvp.Key, kvp => (int)kvp.Value / _loadReductionFactor);
+
             _italianRegionToPopulation.Values.ToList().ForEach(val => _amountOfPeopleToUpload += val);
+
         }
     }
 }
