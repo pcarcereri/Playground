@@ -2,28 +2,45 @@
 using System.Linq;
 using System.Collections.Generic;
 using System.IO;
+using Microsoft.Extensions.Configuration;
 
 namespace AzureTablePerformanceTest
 {
     public static class Parameters
     {
         private static Dictionary<string, int> _italianRegionToPopulation;
-        private static int _loadReductionFactor = 5;
         private static long _amountOfPeopleToUpload = 0;
         private static string _logPath;
 
         static Parameters()
         {
+            string appSettingsPath = Directory.GetCurrentDirectory() + @"\..\..\..";
+            var builder = new ConfigurationBuilder()
+                            .SetBasePath(appSettingsPath)
+                            .AddJsonFile("appsettings.json");
+
+            IConfiguration Configuration = builder.Build();
+
+            ConnectionString = Configuration["ConnectionString"];
+            NumberOfPeopleToQueryPerRegion = int.Parse(Configuration["NumberOfPeopleToQueryPerRegion"]);
+            TableName = Configuration["TableName"];
+            LoadReductionFactor = int.Parse(Configuration["LoadReductionFactor"]);
+            AzureBatchSize = int.Parse(Configuration["AzureBatchSize"]);
+
             InitializeItalianRegions();
 
             InitializeLogging();
         }
 
-        public static int NumberOfPeopleToQueryPerRegion { get; private set; } = 1000;
+        public static int LoadReductionFactor { get; private set; }
 
-        public static string TableName { get; private set; } = "ItalianRegions";
+        public static string ConnectionString { get; private set; }
 
-        public static int AzureBatchSize { get; private set; } = 100;
+        public static int NumberOfPeopleToQueryPerRegion { get; private set; }
+
+        public static string TableName { get; private set; }
+
+        public static int AzureBatchSize { get; private set; };
 
         public static string LogPath
         {
@@ -85,7 +102,7 @@ namespace AzureTablePerformanceTest
             };
 
             _italianRegionToPopulation = _italianRegionToPopulation
-                .ToDictionary(kvp => kvp.Key, kvp => (int)kvp.Value / _loadReductionFactor);
+                .ToDictionary(kvp => kvp.Key, kvp => (int)kvp.Value / LoadReductionFactor);
 
             _italianRegionToPopulation.Values.ToList().ForEach(val => _amountOfPeopleToUpload += val);
 

@@ -1,15 +1,15 @@
 ﻿
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Table;
 using System;
+using System.IO;
 
 namespace AzureTablePerformanceTest
 {
     public class AzureUtils
     {
-        // TODO: move to config file
-        private static readonly string _connectionString = @"Please enter your connection string here";
         private static CloudTableClient _tableClient;
 
         static AzureUtils()
@@ -34,7 +34,7 @@ namespace AzureTablePerformanceTest
             CloudStorageAccount storageAccount;
             try
             {
-                storageAccount = CloudStorageAccount.Parse(_connectionString);
+                storageAccount = CloudStorageAccount.Parse(Parameters.ConnectionString);
             }
             catch (FormatException)
             {
