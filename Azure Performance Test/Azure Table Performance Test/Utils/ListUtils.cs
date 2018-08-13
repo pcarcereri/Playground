@@ -36,6 +36,10 @@ namespace AzureTablePerformanceTest
 
         public static HashSet<int> GenerateListOfRandomIndexes(int length, int maxIndex)
         {
+            if (maxIndex < length)
+            {
+                throw new ArgumentException($"maxIndex: {maxIndex} must be way greater than lenght: {length} for a better index generation");
+            }
             HashSet<int> randomIndexes = new HashSet<int>();
 
             for (int i = 0; i < length; i++)
@@ -49,7 +53,7 @@ namespace AzureTablePerformanceTest
                     trials++;
                     if (trials > 10)
                     {
-                        // trying 10 times
+                        // trying 10 times, them breaking the loop
                         break;
                     }
                 }

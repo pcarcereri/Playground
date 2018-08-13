@@ -19,18 +19,20 @@ namespace AzureTablePerformanceTest
 
             AzureUtils.CreateTableIfNotExists(Parameters.TableName);
 
-            var regionInputData = GenerateTestInputData();
+            IList<RegionInputTestData> testInputData = GenerateTestInputData();
 
-            var regionOutputData = GenerateDatasetAndUploadItToAzure(regionInputData);
+            IList<RegionTestData> regionDataset = GenerateDatasetAndUploadItToAzure(testInputData);
 
-            QueryRandomDataset(regionOutputData);
+            TestExtensions.WriteDatasetToQueryOnFile(regionDataset);
+
+            PerformQueryOnRandomDataset(regionDataset);
 
             Console.ReadLine();
         }
 
-        private static List<RegionInputTestData> GenerateTestInputData()
+        private static IList<RegionInputTestData> GenerateTestInputData()
         {
-            var regionData = new List<RegionInputTestData>();
+            var testInputData = new List<RegionInputTestData>();
 
             foreach (var regionNameToPopulation in Parameters.ItalianRegionToPopulation)
             {
@@ -45,22 +47,22 @@ namespace AzureTablePerformanceTest
                                                                         maxIndex: region.RegionPopulation);
 
                 region.PeopleToQueryIndexes = indexesOfRandomPeopleToQuery;
-                regionData.Add(region);
+                testInputData.Add(region);
             }
 
-            return regionData;
+            return testInputData;
         }
 
-        private static List<RegionTestData> GenerateDatasetAndUploadItToAzure(List<RegionInputTestData> testInputData)
+        private static IList<RegionTestData> GenerateDatasetAndUploadItToAzure(IList<RegionInputTestData> testInputData)
         {
             List<RegionTestData> outputData = new List<RegionTestData>();
-            RegionExecutionTime executionTime = TestUtils.MeasureExecutionTimeForOperationOnEntities(Parameters.NumberOfPeopleToUpload,
-                () =>
+            TimeSpan elapsedTime = TestUtils.MeasureExecutionTimeForOperationOnEntities(() =>
                 {
-                    var regionOutputData = CreateDataSetAndUploadIt(testInputData);
+                    var regionOutputData = TestExtensions.CreateDataSetAndUploadIt(testInputData);
                     outputData.AddRange(regionOutputData);
                 });
 
+            RegionExecutionTime executionTime = TestUtils.CalculateEntitiesPerSecond(Parameters.NumberOfPeopleToUpload, elapsedTime);
             string averageEntitySize = TestUtils.GetTotalEntitySize(outputData);
 
             Console.WriteLine($"\nUploading {Parameters.NumberOfPeopleToUpload.ToString("##,#")} people to azure took: {executionTime.FormattedTime}");
@@ -70,42 +72,18 @@ namespace AzureTablePerformanceTest
             return outputData;
         }
 
-        private static List<RegionTestData> CreateDataSetAndUploadIt(List<RegionInputTestData> inputData)
+        private static void PerformQueryOnRandomDataset(IList<RegionTestData> regionData)
         {
-            var regionTasks = new List<Task<RegionTestData>>();
-
-            foreach (var regionInputData in inputData)
-            {
-                // NOTE: it is not possible to use Parallel.ForEach because of long running tasks
-                // https://social.msdn.microsoft.com/Forums/en-US/9432ed34-01de-4eac-8e6d-2beaa6c10528/long-running-task-in-parallelfor-and-parallelforeach?forum=parallelextensions
-                var writeRegionToAzureTask = new Task<RegionTestData>(() => TestUtils.CreateTestDataAndUploadItToAzure(regionInputData),
-                                                                  TaskCreationOptions.LongRunning);
-                writeRegionToAzureTask.Start();
-                regionTasks.Add(writeRegionToAzureTask);
-            }
-            Task.WaitAll(regionTasks.ToArray());
-
-            var regionData = regionTasks.Select(task => task.Result).ToList();
-
-            regionData.ForEach(data =>
-            {
-                string randomDatasetLocation = Path.Combine(Path.GetTempPath(), data.RegionName + "_random.json");
-                TestUtils.WritePeopleToFile(data.PeopleToQueryDataset, randomDatasetLocation);
-            });
-            return regionData;
-        }
-
-        private static void QueryRandomDataset(List<RegionTestData> regionData)
-        {
-            List<Person> peopleToQuery = TestUtils.RetrieveRandomPeopleToQuery(regionData);
+            IList<Person> peopleToQuery = TestUtils.RetrieveRandomPeopleToQuery(regionData);
 
             var batchesToQuery = peopleToQuery.Batch(Parameters.AzureBatchSize);
 
-            RegionExecutionTime executionTime = TestUtils.MeasureExecutionTimeForOperationOnEntities(peopleToQuery.Count,
-                () =>
-                {
-                    Parallel.ForEach(batchesToQuery, (batchToQuery) => TestUtils.QueryBatchOfPeople(batchToQuery));
-                });
+            TimeSpan elapsedTime = TestUtils.MeasureExecutionTimeForOperationOnEntities(() =>
+               {
+                   Parallel.ForEach(batchesToQuery, (batchToQuery) => TestExtensions.QueryBatchOfPeople(batchToQuery));
+               });
+
+            RegionExecutionTime executionTime = TestUtils.CalculateEntitiesPerSecond(peopleToQuery.Count, elapsedTime);
 
             Console.WriteLine(Environment.NewLine);
             Console.WriteLine($"Retrieving {peopleToQuery.Count.ToString("##,#")} random people (c.a. {Parameters.NumberOfPeopleToQueryPerRegion} per region) took: {executionTime.FormattedTime}");

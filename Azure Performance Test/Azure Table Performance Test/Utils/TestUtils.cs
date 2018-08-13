@@ -14,37 +14,11 @@ namespace AzureTablePerformanceTest
     {
         private static Random _random = new Random();
 
-        public static RegionTestData CreateTestDataAndUploadItToAzure(RegionInputTestData regionInputData)
+        public static long GetTotalRegionPopulation(List<RegionTestData> regionData)
         {
-            List<Person> peopleBatch = new List<Person>();
-            List<Person> peopleToQuery = new List<Person>();
-
-            for (int counter = 1; counter <= regionInputData.RegionPopulation; counter++)
-            {
-                var newPerson = new Person(regionInputData.RegionName);
-                peopleBatch.Add(newPerson);
-
-                if (regionInputData.PeopleToQueryIndexes.Contains(counter))
-                {
-                    peopleToQuery.Add(newPerson);
-                }
-
-                if (counter % Parameters.AzureBatchSize == 0 || counter == regionInputData.RegionPopulation)
-                {
-                    InsertBatchIntoTable(peopleBatch);
-                    peopleBatch.Clear();
-                }
-            }
-
-            Console.WriteLine($"Uploaded {regionInputData.RegionPopulation.ToString("##,#")} people for region: '{regionInputData.RegionName}'");
-
-            return new RegionTestData()
-            {
-                RegionName = regionInputData.RegionName,
-                RegionPopulation = regionInputData.RegionPopulation,
-                PeopleToQueryDataset = peopleToQuery,
-                AverageEntitySizeForQueriedEntitiesInKB = CalculateAverageEntitySize(peopleToQuery),
-            };
+            long amountOfPeopleToUpload = 0;
+            regionData.ForEach(region => amountOfPeopleToUpload += region.RegionPopulation);
+            return amountOfPeopleToUpload;
         }
 
         public static string GetTotalEntitySize(List<RegionTestData> regionData)
@@ -55,29 +29,13 @@ namespace AzureTablePerformanceTest
             return averageEntitySize.ToString("f2");
         }
 
-        public static long GetTotalRegionPopulation(List<RegionTestData> regionData)
-        {
-            long amountOfPeopleToUpload = 0;
-            regionData.ForEach(region => amountOfPeopleToUpload += region.RegionPopulation);
-            return amountOfPeopleToUpload;
-        }
-
-        private static double CalculateAverageEntitySize(IEnumerable<Person> peopleDataset)
+        public static double CalculateAverageEntitySize(List<Person> peopleDataset)
         {
             long totalSizeInByte = 0;
 
             foreach (var person in peopleDataset)
             {
-                // https://blogs.msdn.microsoft.com/avkashchauhan/2011/11/30/how-the-size-of-an-entity-is-caclulated-in-windows-azure-table-storage/
-                //4 bytes + Len(PartitionKey + RowKey) * 2 bytes + For - Each Property(8 bytes + Len(Property Name) * 2 bytes + Sizeof(.Net Property Type))
-                int personSize = 4 + (person.PartitionKey.Length + person.RowKey.Length) * 2 +
-                                    8 + "FirstName".Length * 2 + person.FirstName.Length * 2 +
-                                    8 + "LastName".Length * 2 + person.LastName.Length * 2 +
-                                    8 + "TaxNumber".Length * 2 + person.TaxNumber.Length * 2 +
-                                    8 + "Age".Length * 2 + 4;
-
-                totalSizeInByte += personSize;
-
+                totalSizeInByte += GetEntitySizeInByte(person);
             }
 
             double totalSizeInByteInKB = totalSizeInByte / 1000;
@@ -85,7 +43,18 @@ namespace AzureTablePerformanceTest
             return averageEntitySizeForRegion;
         }
 
-        public static List<Person> RetrieveRandomPeopleToQuery(List<RegionTestData> regionData)
+        public static int GetEntitySizeInByte(Person person)
+        {
+            // https://blogs.msdn.microsoft.com/avkashchauhan/2011/11/30/how-the-size-of-an-entity-is-caclulated-in-windows-azure-table-storage/
+            //4 bytes + Len(PartitionKey + RowKey) * 2 bytes + For - Each Property(8 bytes + Len(Property Name) * 2 bytes + Sizeof(.Net Property Type))
+            return 4 + (person.PartitionKey.Length + person.RowKey.Length) * 2 +
+                                8 + "FirstName".Length * 2 + person.FirstName.Length * 2 +
+                                8 + "LastName".Length * 2 + person.LastName.Length * 2 +
+                                8 + "TaxNumber".Length * 2 + person.TaxNumber.Length * 2 +
+                                8 + "Age".Length * 2 + 4;
+        }
+
+        public static IList<Person> RetrieveRandomPeopleToQuery(IList<RegionTestData> regionData)
         {
             List<Person> peopleToQuery = regionData
                             .SelectMany(regionInfo => regionInfo.PeopleToQueryDataset)
@@ -96,32 +65,7 @@ namespace AzureTablePerformanceTest
             return peopleToQuery;
         }
 
-        public static void QueryBatchOfPeople(IEnumerable<Person> batchToQuery)
-        {
-            CloudTable cloudTable = AzureUtils.GetCloudTable(Parameters.TableName);
-
-            Parallel.ForEach(batchToQuery, (person) =>
-            {
-                TableOperation retrieveOperation = TableOperation.Retrieve<Person>(person.PartitionKey, person.RowKey);
-
-                var queryTask = cloudTable.ExecuteAsync(retrieveOperation);
-            });
-        }
-
-        public static void InsertBatchIntoTable(IEnumerable<Person> people)
-        {
-            TableBatchOperation batchOperation = new TableBatchOperation();
-            CloudTable cloudTable = AzureUtils.GetCloudTable(Parameters.TableName);
-
-            foreach (var person in people)
-            {
-                batchOperation.Insert(person);
-            }
-
-            cloudTable.ExecuteBatchAsync(batchOperation).Wait();
-        }
-
-        public static RegionExecutionTime MeasureExecutionTimeForOperationOnEntities(long numberOfPeople, Action action)
+        public static TimeSpan MeasureExecutionTimeForOperationOnEntities(Action action)
         {
             Stopwatch timer = Stopwatch.StartNew();
 
@@ -131,6 +75,11 @@ namespace AzureTablePerformanceTest
 
             TimeSpan executionTime = timer.Elapsed;
 
+            return executionTime;
+        }
+
+        public static RegionExecutionTime CalculateEntitiesPerSecond(long numberOfPeople, TimeSpan executionTime)
+        {
             string executionTimeString = String.Format("{0:00}hrs {1:00}min {2:00}s", executionTime.Hours, executionTime.Minutes, executionTime.Seconds);
 
             // we use milliseconds in case the operation took less than 1 second 
