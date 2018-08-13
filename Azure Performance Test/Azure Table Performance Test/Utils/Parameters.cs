@@ -26,6 +26,7 @@ namespace AzureTablePerformanceTest
             TableName = Configuration["TableName"];
             LoadReductionFactor = int.Parse(Configuration["LoadReductionFactor"]);
             AzureBatchSize = int.Parse(Configuration["AzureBatchSize"]);
+            WritePeopleToQueryToFile = bool.Parse(Configuration["WritePeopleToQueryToFile"]);
 
             InitializeItalianRegions();
 
@@ -41,6 +42,8 @@ namespace AzureTablePerformanceTest
         public static string TableName { get; private set; }
 
         public static int AzureBatchSize { get; private set; }
+
+        public static bool WritePeopleToQueryToFile { get; private set; }
 
         public static string LogPath
         {

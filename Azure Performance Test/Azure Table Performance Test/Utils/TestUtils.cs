@@ -83,7 +83,7 @@ namespace AzureTablePerformanceTest
             string executionTimeString = String.Format("{0:00}hrs {1:00}min {2:00}s", executionTime.Hours, executionTime.Minutes, executionTime.Seconds);
 
             // we use milliseconds in case the operation took less than 1 second 
-            double elapsedSeconds = executionTime.Seconds + ((double)executionTime.Milliseconds / 1000);
+            double elapsedSeconds = executionTime.TotalSeconds + ((double)executionTime.Milliseconds / 1000);
             double entitiesPerSecond = (double)numberOfPeople / elapsedSeconds;
             string entitiesPerSecondString = entitiesPerSecond.ToString("f2");
 

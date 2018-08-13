@@ -34,29 +34,36 @@ namespace AzureTablePerformanceTest
                 yield return bucket.Take(count);
         }
 
-        public static HashSet<int> GenerateListOfRandomIndexes(int length, int maxIndex)
+        public static HashSet<int> GenerateListOfRandomIndexes(int listLenght, int maxIndex)
         {
-            if (maxIndex < length)
-            {
-                throw new ArgumentException($"maxIndex: {maxIndex} must be way greater than lenght: {length} for a better index generation");
-            }
             HashSet<int> randomIndexes = new HashSet<int>();
 
-            for (int i = 0; i < length; i++)
-            {
-                int randomIndex = _random.Next(maxIndex);
+            // TODO: improve this algorithm
+            bool canGenerateRandomIndexes = maxIndex > (listLenght * 2);
 
-                int trials = 0;
-                while (randomIndexes.Contains(randomIndex))
+            int maxNumberOfTrialsBeforeContinuingTheGeneration = 10;
+
+            for (int i = 0; i < listLenght; i++)
+            {
+                int randomIndex = i;
+
+                if (canGenerateRandomIndexes)
                 {
                     randomIndex = _random.Next(maxIndex);
-                    trials++;
-                    if (trials > 10)
+
+                    int trials = 0;
+                    while (randomIndexes.Contains(randomIndex))
                     {
-                        // trying 10 times, them breaking the loop
-                        break;
+                        randomIndex = _random.Next(maxIndex);
+                        trials++;
+                        if (trials > maxNumberOfTrialsBeforeContinuingTheGeneration)
+                        {
+                            // trying 10 times, them breaking the loop
+                            break;
+                        }
                     }
                 }
+
                 randomIndexes.Add(randomIndex);
             }
             return randomIndexes;

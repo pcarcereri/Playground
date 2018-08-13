@@ -23,7 +23,7 @@ namespace AzureTablePerformanceTest
 
             IList<RegionTestData> regionDataset = GenerateDatasetAndUploadItToAzure(testInputData);
 
-            TestExtensions.WriteDatasetToQueryOnFile(regionDataset);
+            WriteDatasetToQueryOnFile(regionDataset);
 
             PerformQueryOnRandomDataset(regionDataset);
 
@@ -43,7 +43,7 @@ namespace AzureTablePerformanceTest
                 };
 
                 HashSet<int> indexesOfRandomPeopleToQuery = ListUtils.GenerateListOfRandomIndexes(
-                                                                        length: Parameters.NumberOfPeopleToQueryPerRegion,
+                                                                        listLenght: Parameters.NumberOfPeopleToQueryPerRegion,
                                                                         maxIndex: region.RegionPopulation);
 
                 region.PeopleToQueryIndexes = indexesOfRandomPeopleToQuery;
@@ -70,6 +70,19 @@ namespace AzureTablePerformanceTest
             Console.WriteLine($"Uploading average of {executionTime.EntitiesPerSecond} entities/s");
 
             return outputData;
+        }
+
+
+        private static void WriteDatasetToQueryOnFile(IList<RegionTestData> regionData)
+        {
+            if (Parameters.WritePeopleToQueryToFile)
+            {
+                foreach (var region in regionData)
+                {
+                    string randomDatasetLocation = Path.Combine(Path.GetTempPath(), region.RegionName + "_random.json");
+                    TestUtils.WritePeopleToFile(region.PeopleToQueryDataset, randomDatasetLocation);
+                }
+            }
         }
 
         private static void PerformQueryOnRandomDataset(IList<RegionTestData> regionData)

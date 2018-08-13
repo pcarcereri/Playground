@@ -100,14 +100,5 @@ namespace AzureTablePerformanceTest
 
             cloudTable.ExecuteBatchAsync(batchOperation).Wait();
         }
-
-        public static void WriteDatasetToQueryOnFile(IList<RegionTestData> regionData)
-        {
-            foreach (var region in regionData)
-            {
-                string randomDatasetLocation = Path.Combine(Path.GetTempPath(), region.RegionName + "_random.json");
-                TestUtils.WritePeopleToFile(region.PeopleToQueryDataset, randomDatasetLocation);
-            }
-        }
     }
 }
