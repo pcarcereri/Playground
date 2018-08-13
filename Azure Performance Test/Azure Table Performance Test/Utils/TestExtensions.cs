@@ -21,10 +21,11 @@ namespace AzureTablePerformanceTest
                 // NOTE: it is not possible to use Parallel.ForEach because of long running tasks
                 // https://social.msdn.microsoft.com/Forums/en-US/9432ed34-01de-4eac-8e6d-2beaa6c10528/long-running-task-in-parallelfor-and-parallelforeach?forum=parallelextensions
                 var writeRegionToAzureTask = new Task<RegionTestData>(() => TestExtensions.CreateTestDataAndUploadItToAzure(regionInputData),
-                                                                  TaskCreationOptions.LongRunning);
+                                                                      TaskCreationOptions.LongRunning);
                 writeRegionToAzureTask.Start();
                 regionTasks.Add(writeRegionToAzureTask);
             }
+
             Task.WaitAll(regionTasks.ToArray());
 
             var regionData = regionTasks.Select(task => task.Result).ToList();
@@ -44,11 +45,13 @@ namespace AzureTablePerformanceTest
 
                 if (regionInputData.PeopleToQueryIndexes.Contains(counter))
                 {
+                    // this person will be queried later on
                     peopleToQuery.Add(newPerson);
                 }
 
                 if (counter % Parameters.AzureBatchSize == 0 || counter == regionInputData.RegionPopulation)
                 {
+                    // end of the batch or of the list
                     InsertBatchIntoTable(peopleBatch);
                     peopleBatch.Clear();
                 }

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.WindowsAzure.Storage.Table;
+using System.Collections.Concurrent;
 
 namespace AzureTablePerformanceTest
 {
@@ -13,7 +14,8 @@ namespace AzureTablePerformanceTest
         static void Main(string[] args)
         {
             Console.WriteLine("--- Azure Storage Table Performance Test ---");
-            Console.WriteLine($"--- Loading {Parameters.NumberOfPeopleToUpload.ToString("##,#")} people splitted into {Parameters.ItalianRegionToPopulation.Count} regions ---\n");
+            Console.WriteLine($"--- Uploading and querying a dataset of {Parameters.NumberOfPeopleToUpload.ToString("##,#")} people ---");
+            Console.WriteLine($"--- People are partitioned into {Parameters.ItalianRegionToPopulation.Count} regions ---");
 
             AppDomain.CurrentDomain.UnhandledException += UnhandledExceptionTrapper;
 
@@ -23,7 +25,7 @@ namespace AzureTablePerformanceTest
 
             IList<RegionTestData> regionDataset = GenerateDatasetAndUploadItToAzure(testInputData);
 
-            WriteDatasetToQueryOnFile(regionDataset);
+            WriteDatasetToQueryOnFileIfRequired(regionDataset);
 
             PerformQueryOnRandomDataset(regionDataset);
 
@@ -32,25 +34,25 @@ namespace AzureTablePerformanceTest
 
         private static IList<RegionInputTestData> GenerateTestInputData()
         {
-            var testInputData = new List<RegionInputTestData>();
+            var testInputData = new ConcurrentBag<RegionInputTestData>();
 
-            foreach (var regionNameToPopulation in Parameters.ItalianRegionToPopulation)
-            {
-                var region = new RegionInputTestData()
-                {
-                    RegionName = regionNameToPopulation.Key,
-                    RegionPopulation = regionNameToPopulation.Value,
-                };
+            Parallel.ForEach(Parameters.ItalianRegionToPopulation, (regionNameToPopulation) =>
+             {
+                 var region = new RegionInputTestData()
+                 {
+                     RegionName = regionNameToPopulation.Key,
+                     RegionPopulation = regionNameToPopulation.Value,
+                 };
 
-                HashSet<int> indexesOfRandomPeopleToQuery = ListUtils.GenerateListOfRandomIndexes(
-                                                                        listLenght: Parameters.NumberOfPeopleToQueryPerRegion,
-                                                                        maxIndex: region.RegionPopulation);
+                 HashSet<int> indexesOfRandomPeopleToQuery = ListUtils.GenerateListOfRandomIndexes(
+                                                                         listLenght: Parameters.NumberOfPeopleToQueryPerRegion,
+                                                                         maxIndex: region.RegionPopulation);
+                 region.PeopleToQueryIndexes = indexesOfRandomPeopleToQuery;
 
-                region.PeopleToQueryIndexes = indexesOfRandomPeopleToQuery;
-                testInputData.Add(region);
-            }
+                 testInputData.Add(region);
+             });
 
-            return testInputData;
+            return testInputData.ToList();
         }
 
         private static IList<RegionTestData> GenerateDatasetAndUploadItToAzure(IList<RegionInputTestData> testInputData)
@@ -72,16 +74,15 @@ namespace AzureTablePerformanceTest
             return outputData;
         }
 
-
-        private static void WriteDatasetToQueryOnFile(IList<RegionTestData> regionData)
+        private static void WriteDatasetToQueryOnFileIfRequired(IList<RegionTestData> regionData)
         {
             if (Parameters.WritePeopleToQueryToFile)
             {
-                foreach (var region in regionData)
+                Parallel.ForEach(regionData, (region) =>
                 {
                     string randomDatasetLocation = Path.Combine(Path.GetTempPath(), region.RegionName + "_random.json");
                     TestUtils.WritePeopleToFile(region.PeopleToQueryDataset, randomDatasetLocation);
-                }
+                });
             }
         }
 
@@ -93,7 +94,8 @@ namespace AzureTablePerformanceTest
 
             TimeSpan elapsedTime = TestUtils.MeasureExecutionTimeForOperationOnEntities(() =>
                {
-                   Parallel.ForEach(batchesToQuery, (batchToQuery) => TestExtensions.QueryBatchOfPeople(batchToQuery));
+                   Parallel.ForEach(batchesToQuery,
+                                   (batchToQuery) => TestExtensions.QueryBatchOfPeople(batchToQuery));
                });
 
             RegionExecutionTime executionTime = TestUtils.CalculateEntitiesPerSecond(peopleToQuery.Count, elapsedTime);

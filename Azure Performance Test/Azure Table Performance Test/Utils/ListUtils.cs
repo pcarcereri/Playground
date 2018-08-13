@@ -39,7 +39,7 @@ namespace AzureTablePerformanceTest
             HashSet<int> randomIndexes = new HashSet<int>();
 
             // TODO: improve this algorithm
-            bool canGenerateRandomIndexes = maxIndex > (listLenght * 2);
+            bool canGenerateRandomIndexes = maxIndex > listLenght;
 
             int maxNumberOfTrialsBeforeContinuingTheGeneration = 10;
 
@@ -63,7 +63,6 @@ namespace AzureTablePerformanceTest
                         }
                     }
                 }
-
                 randomIndexes.Add(randomIndex);
             }
             return randomIndexes;
