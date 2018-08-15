@@ -64,7 +64,7 @@ namespace AzureTablePerformanceTest
                 RegionName = regionInputData.RegionName,
                 RegionPopulation = regionInputData.RegionPopulation,
                 PeopleToQueryDataset = peopleToQuery,
-                AverageEntitySizeForQueriedEntitiesInKB = TestUtils.CalculateAverageEntitySize(peopleToQuery),
+                AverageEntitySizeForQueriedEntitiesInByte = TestUtils.CalculateAverageEntitySize(peopleToQuery),
             };
         }
 

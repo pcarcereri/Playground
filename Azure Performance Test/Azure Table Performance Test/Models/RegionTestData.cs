@@ -7,6 +7,6 @@ namespace AzureTablePerformanceTest
         public string RegionName { get; set; }
         public int RegionPopulation { get; set; }
         public IEnumerable<Person> PeopleToQueryDataset { get; set; }
-        public double AverageEntitySizeForQueriedEntitiesInKB { get; set; }
+        public double AverageEntitySizeForQueriedEntitiesInByte { get; set; }
     }
 }

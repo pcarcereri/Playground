@@ -15,7 +15,7 @@ namespace AzureTablePerformanceTest
         {
             Console.WriteLine("--- Azure Storage Table Performance Test ---");
             Console.WriteLine($"--- Uploading and querying a dataset of {Parameters.NumberOfPeopleToUpload.ToString("##,#")} people ---");
-            Console.WriteLine($"--- People are partitioned into {Parameters.ItalianRegionToPopulation.Count} regions ---");
+            Console.WriteLine($"--- People are partitioned into {Parameters.ItalianRegionToPopulation.Count} regions --- {Environment.NewLine}");
 
             AppDomain.CurrentDomain.UnhandledException += UnhandledExceptionTrapper;
 

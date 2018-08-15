@@ -23,10 +23,11 @@ namespace AzureTablePerformanceTest
 
         public static string GetTotalEntitySize(List<RegionTestData> regionData)
         {
-            double regionTotalSize = 0;
-            regionData.ForEach(region => regionTotalSize += region.AverageEntitySizeForQueriedEntitiesInKB);
-            double averageEntitySize = regionTotalSize / regionData.Count;
-            return averageEntitySize.ToString("f2");
+            double regionTotalSizeInByte = 0;
+            regionData.ForEach(region => regionTotalSizeInByte += region.AverageEntitySizeForQueriedEntitiesInByte);
+            double averageEntitySizeInByte = regionTotalSizeInByte / regionData.Count;
+            double averageEntitySizeInKB = regionTotalSizeInByte / 1000;
+            return averageEntitySizeInKB.ToString();
         }
 
         public static double CalculateAverageEntitySize(List<Person> peopleDataset)
@@ -38,8 +39,7 @@ namespace AzureTablePerformanceTest
                 totalSizeInByte += GetEntitySizeInByte(person);
             }
 
-            double totalSizeInByteInKB = totalSizeInByte / 1000;
-            double averageEntitySizeForRegion = totalSizeInByteInKB / peopleDataset.Count();
+            double averageEntitySizeForRegion = totalSizeInByte / peopleDataset.Count;
             return averageEntitySizeForRegion;
         }
 
